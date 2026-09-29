@@ -1,0 +1,5 @@
+import { StudioWorkspace } from '@/components/StudioWorkspace';
+
+export default function HomePage() {
+  return <StudioWorkspace />;
+}
