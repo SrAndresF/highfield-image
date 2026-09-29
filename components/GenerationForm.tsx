@@ -270,6 +270,7 @@ export function GenerationForm({
             const currentValue = params[param.key] ?? param.defaultValue;
 
             if (param.type === 'url') {
+              const isVideoUrlParam = param.key === 'video_url';
               return (
                 <div key={param.key} className="sm:col-span-2">
                   <div className="flex items-center justify-between">
@@ -287,12 +288,16 @@ export function GenerationForm({
                       onClick={() =>
                         onChangeParam(
                           param.key,
-                          'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80'
+                          isVideoUrlParam
+                            ? 'https://assets.mixkit.co/videos/preview/mixkit-woman-walking-in-a-futuristic-city-41566-large.mp4'
+                            : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=1000&q=80'
                         )
                       }
                       className="text-xs font-bold text-indigo-600 hover:underline"
                     >
-                      Usar imagen de prueba (Unsplash)
+                      {isVideoUrlParam
+                        ? 'Usar video MP4 de prueba'
+                        : 'Usar imagen de prueba (Unsplash)'}
                     </button>
                   </div>
                   {param.description && (
@@ -302,7 +307,7 @@ export function GenerationForm({
                   )}
                   <input
                     id={`param-${param.key}`}
-                    type="url"
+                    type="text"
                     value={String(currentValue)}
                     onChange={(e) => onChangeParam(param.key, e.target.value)}
                     placeholder={param.placeholder}
@@ -455,7 +460,11 @@ export function GenerationForm({
       {/* Botón principal de Generar */}
       <button
         type="submit"
-        disabled={!hasCredentials || isBusy || !prompt.trim()}
+        disabled={
+          !hasCredentials ||
+          isBusy ||
+          (!selectedModel.id.includes('genjutsu') && !prompt.trim())
+        }
         className="flex w-full items-center justify-center gap-2.5 rounded-xl bg-indigo-600 px-5 py-3.5 text-sm font-bold text-white shadow-md transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
       >
         {isBusy ? (

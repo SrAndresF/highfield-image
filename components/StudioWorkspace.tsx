@@ -37,15 +37,15 @@ export function StudioWorkspace() {
   // Estado del formulario de generación
   const [mediaType, setMediaType] = useState<MediaType>('video');
   const [selectedModelId, setSelectedModelId] = useState<string>(
-    'bytedance/seedance-2.5/text-to-video'
+    'higgsfield/genjutsu/motion-transfer/v1.0'
   );
   const [prompt, setPrompt] = useState<string>(
-    'A cinematic scene at sunset over futuristic floating islands, golden hour volumetric lighting'
+    'Cinematic motion transfer, cyberpunk neon lighting, detailed realistic texture'
   );
   const [economyMode, setEconomyMode] = useState<boolean>(false);
   const [params, setParams] = useState<Record<string, ParameterValue>>(() => {
     const initialModel =
-      getModelById('bytedance/seedance-2.5/text-to-video') ?? MODELS[0];
+      getModelById('higgsfield/genjutsu/motion-transfer/v1.0') ?? MODELS[0];
     return getDefaultParamsForModel(initialModel, false);
   });
 

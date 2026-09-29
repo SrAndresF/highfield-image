@@ -14,8 +14,8 @@ const generateRequestSchema = z.object({
   prompt: z
     .string()
     .trim()
-    .min(3, 'El prompt debe tener al menos 3 caracteres.')
-    .max(2500, 'El prompt no puede superar los 2,500 caracteres.'),
+    .max(2500, 'El prompt no puede superar los 2,500 caracteres.')
+    .default(''),
   params: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).default({}),
 });
 
@@ -71,6 +71,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
+  const isGenjutsu = model.id.includes('genjutsu');
+  if (!isGenjutsu && prompt.length < 3) {
+    return NextResponse.json(
+      {
+        error: 'El prompt debe tener al menos 3 caracteres para este modelo.',
+        code: 'PROMPT_TOO_SHORT',
+      },
+      { status: 400 }
+    );
+  }
+
   // Validación dinámica contra los parámetros definidos en lib/models.ts
   const validatedParams: Record<string, ParameterValue> = {};
 
@@ -89,25 +100,42 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         );
       }
       if (strVal) {
-        try {
-          const parsedUrl = new URL(strVal);
-          if (parsedUrl.protocol !== 'https:') {
+        const urlList = strVal
+          .split(',')
+          .map((u) => u.trim())
+          .filter((u) => u.length > 0);
+
+        if (urlList.length > 8) {
+          return NextResponse.json(
+            {
+              error: `El campo "${paramDef.label}" permite un máximo de 8 URLs de referencia.`,
+              code: 'TOO_MANY_URLS',
+            },
+            { status: 400 }
+          );
+        }
+
+        for (const singleUrl of urlList) {
+          try {
+            const parsedUrl = new URL(singleUrl);
+            if (parsedUrl.protocol !== 'https:') {
+              return NextResponse.json(
+                {
+                  error: `Todas las URLs en "${paramDef.label}" deben usar protocolo seguro HTTPS.`,
+                  code: 'INVALID_URL_PROTOCOL',
+                },
+                { status: 400 }
+              );
+            }
+          } catch {
             return NextResponse.json(
               {
-                error: `El campo "${paramDef.label}" debe ser una URL segura con protocolo HTTPS.`,
-                code: 'INVALID_URL_PROTOCOL',
+                error: `El valor "${singleUrl}" en "${paramDef.label}" no es una URL válida.`,
+                code: 'INVALID_URL',
               },
               { status: 400 }
             );
           }
-        } catch {
-          return NextResponse.json(
-            {
-              error: `El valor ingresado en "${paramDef.label}" no es una URL válida.`,
-              code: 'INVALID_URL',
-            },
-            { status: 400 }
-          );
         }
       }
       validatedParams[paramDef.key] = strVal;

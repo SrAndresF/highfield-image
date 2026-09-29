@@ -240,6 +240,57 @@ export const MODELS: readonly ModelConfig[] = [
   // MODELOS DE VIDEO
   // ============================================================================
   {
+    id: 'higgsfield/genjutsu/motion-transfer/v1.0',
+    name: 'Higgsfield / Genjutsu (Motion Transfer v1.0)',
+    provider: 'HiggsfieldVideo · Genjutsu',
+    type: 'video',
+    badge: 'Motion Transfer · Video + Imágenes Ref',
+    description:
+      'Transfiere el movimiento, cámara y actuación de un video origen (mín. 4s) hacia un nuevo personaje, objeto o estilo usando de 1 a 8 imágenes de referencia.',
+    parameters: [
+      {
+        key: 'video_url',
+        label: 'URL del Video Origen (HTTPS · mín. 4s, máx. 30s)',
+        description:
+          'Enlace público HTTPS al video cuyo movimiento o cámara deseas transferir.',
+        type: 'url',
+        placeholder: 'https://assets.mixkit.co/videos/preview/mixkit-woman-walking-in-a-futuristic-city-41566-large.mp4',
+        defaultValue: '',
+        required: true,
+      },
+      {
+        key: 'image_url',
+        label: 'URL(s) de Imagen de Referencia (1 a 8 URLs HTTPS separadas por coma)',
+        description:
+          'Define el personaje, vestuario o escenario destino. Puedes pegar 1 URL o hasta 8 URLs HTTPS separadas por comas.',
+        type: 'url',
+        placeholder: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb',
+        defaultValue: '',
+        required: true,
+      },
+    ],
+    economyPreset: {},
+    estimatedCost: {
+      standardLabel: '~$0.30 – $0.65 USD / transferencia',
+      economyLabel: '~$0.30 USD (según duración del video origen)',
+      note: 'La duración de salida depende del video origen (videos >30s se recortan automáticamente a 30s).',
+    },
+    transformPayload: (prompt, rawParams) => {
+      const videoUrl = String(rawParams.video_url ?? '').trim();
+      const rawImageUrls = String(rawParams.image_url ?? '')
+        .split(',')
+        .map((u) => u.trim())
+        .filter((u) => u.length > 0)
+        .slice(0, 8);
+
+      return {
+        video_url: videoUrl,
+        image_urls: rawImageUrls,
+        prompt: prompt.trim(),
+      };
+    },
+  },
+  {
     id: 'bytedance/seedance-2.5/text-to-video',
     name: 'ByteDance Seedance 2.5',
     provider: 'ByteDance · Higgsfield V2',
