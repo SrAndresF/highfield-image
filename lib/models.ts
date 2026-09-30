@@ -93,6 +93,94 @@ export const MODELS: readonly ModelConfig[] = [
   // 1. MODELOS DE IMAGEN A VIDEO (ANIMAR IMAGEN / REFERENCIA)
   // ============================================================================
   {
+    id: 'bytedance/seedance-2.5/image-to-video',
+    name: 'ByteDance Seedance 2.5 (Image-to-Video)',
+    provider: 'ByteDance · Higgsfield V2',
+    type: 'video',
+    category: 'image-to-video',
+    badge: 'Imagen a Video + Audio',
+    description:
+      'Convierte una imagen de referencia en un video cinematográfico de alta coherencia y fluidez con síntesis opcional de audio sincronizado.',
+    parameters: [
+      {
+        key: 'image_url',
+        label: 'Imagen Inicial de Referencia',
+        description: 'Sube tu imagen (JPG, PNG, WebP) o pega un enlace para animarla con Seedance 2.5.',
+        type: 'url',
+        placeholder: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23',
+        defaultValue: '',
+        required: true,
+        mediaKind: 'image',
+      },
+      {
+        key: 'duration',
+        label: 'Duración (segundos)',
+        type: 'select',
+        defaultValue: 5,
+        options: [
+          { label: '5 segundos (Rápido / Económico)', value: 5 },
+          { label: '10 segundos (Extendido)', value: 10 },
+        ],
+      },
+      {
+        key: 'resolution',
+        label: 'Resolución',
+        type: 'select',
+        defaultValue: '720p',
+        options: [
+          { label: '720p (HD Estándar / Económico)', value: '720p' },
+          { label: '1080p (Full HD)', value: '1080p' },
+        ],
+      },
+      {
+        key: 'aspect_ratio',
+        label: 'Relación de aspecto',
+        type: 'select',
+        defaultValue: '16:9',
+        options: [
+          { label: '16:9 (Horizontal)', value: '16:9' },
+          { label: '9:16 (Vertical / Móvil)', value: '9:16' },
+          { label: '1:1 (Cuadrado)', value: '1:1' },
+        ],
+      },
+      {
+        key: 'output_format',
+        label: 'Formato de salida',
+        type: 'select',
+        defaultValue: 'mp4',
+        options: [{ label: 'MP4 (H.264)', value: 'mp4' }],
+      },
+      {
+        key: 'generate_audio',
+        label: 'Generar audio sincronizado',
+        description: 'Sintetiza efectos de sonido y ambiente acordes al movimiento.',
+        type: 'boolean',
+        defaultValue: true,
+      },
+    ],
+    economyPreset: {
+      duration: 5,
+      resolution: '720p',
+      aspect_ratio: '16:9',
+      output_format: 'mp4',
+      generate_audio: false,
+    },
+    estimatedCost: {
+      standardLabel: '~$0.25 – $0.60 USD / video',
+      economyLabel: '~$0.20 USD (5s · 720p · sin audio)',
+      note: 'El modo económico reduce la duración a 5s y desactiva síntesis de audio para ahorrar créditos.',
+    },
+    transformPayload: (prompt, rawParams) => ({
+      image_url: String(rawParams.image_url ?? '').trim(),
+      prompt: prompt.trim(),
+      duration: Number(rawParams.duration ?? 5),
+      resolution: String(rawParams.resolution ?? '720p'),
+      aspect_ratio: String(rawParams.aspect_ratio ?? '16:9'),
+      output_format: String(rawParams.output_format ?? 'mp4'),
+      generate_audio: Boolean(rawParams.generate_audio ?? true),
+    }),
+  },
+  {
     id: 'kling-video/v3.0/std/image-to-video',
     name: 'Kling 3.0 Standard (Image-to-Video)',
     provider: 'Kuaishou Kling · Higgsfield V2',

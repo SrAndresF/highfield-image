@@ -38,15 +38,15 @@ export function StudioWorkspace() {
   // Estado del formulario de generación
   const [category, setCategory] = useState<GenerationCategory>('image-to-video');
   const [selectedModelId, setSelectedModelId] = useState<string>(
-    'kling-video/v3.0/std/image-to-video'
+    'bytedance/seedance-2.5/image-to-video'
   );
   const [prompt, setPrompt] = useState<string>(
-    'A slow cinematic drone zoom out as the ocean waves gently move with golden sunlight reflecting on the surface'
+    'A cinematic camera motion bringing the subject to life, gentle natural movement with ambient sound, 4k high quality'
   );
   const [economyMode, setEconomyMode] = useState<boolean>(false);
   const [params, setParams] = useState<Record<string, ParameterValue>>(() => {
     const initialModel =
-      getModelById('kling-video/v3.0/std/image-to-video') ?? MODELS[0];
+      getModelById('bytedance/seedance-2.5/image-to-video') ?? MODELS[0];
     return getDefaultParamsForModel(initialModel, false);
   });
 
