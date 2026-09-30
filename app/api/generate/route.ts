@@ -118,7 +118,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         for (const singleUrl of urlList) {
           try {
             const parsedUrl = new URL(singleUrl);
-            if (parsedUrl.protocol !== 'https:') {
+            const isLocalhost =
+              parsedUrl.hostname === 'localhost' ||
+              parsedUrl.hostname === '127.0.0.1';
+            if (parsedUrl.protocol !== 'https:' && !isLocalhost) {
               return NextResponse.json(
                 {
                   error: `Todas las URLs en "${paramDef.label}" deben usar protocolo seguro HTTPS.`,

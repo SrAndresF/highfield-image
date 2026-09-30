@@ -11,18 +11,21 @@ import {
   Loader2,
   Sliders,
   Wand2,
+  Clapperboard,
+  Flame,
 } from 'lucide-react';
 import {
   MODELS,
-  type MediaType,
+  type GenerationCategory,
   type ModelConfig,
   type ParameterValue,
 } from '@/lib/models';
 import type { JobPhase } from '@/hooks/usePolling';
+import { MediaUploader } from '@/components/MediaUploader';
 
 interface GenerationFormProps {
-  mediaType: MediaType;
-  onChangeMediaType: (type: MediaType) => void;
+  category: GenerationCategory;
+  onChangeCategory: (cat: GenerationCategory) => void;
   selectedModel: ModelConfig;
   onSelectModel: (modelId: string) => void;
   prompt: string;
@@ -32,25 +35,66 @@ interface GenerationFormProps {
   economyMode: boolean;
   onToggleEconomyMode: (enabled: boolean) => void;
   hasCredentials: boolean;
+  credentials?: string;
   onOpenKeyModal: () => void;
   phase: JobPhase;
   onSubmit: (e: React.FormEvent) => void;
 }
 
-const SAMPLE_PROMPTS: Record<MediaType, string[]> = {
-  image: [
-    'Retrato cinematográfico de una astronauta explorando un bosque bioluminiscente al atardecer, lente anamórfico 35mm, iluminación volumétrica',
-    'Arquitectura minimalista de hormigón y cristal frente a un fiordo nórdico con niebla matutina, fotografía editorial hiperrealista',
+const CATEGORY_DEFINITIONS: Array<{
+  id: GenerationCategory;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  description: string;
+}> = [
+  {
+    id: 'text-to-image',
+    label: 'Texto a Imagen',
+    icon: ImageIcon,
+    description: 'Genera imágenes fotorrealistas o estilizadas a partir de texto (con opción de imagen de referencia).',
+  },
+  {
+    id: 'image-to-video',
+    label: 'Imagen a Video',
+    icon: Clapperboard,
+    description: 'Anima una fotografía o imagen inicial para convertirla en video con IA.',
+  },
+  {
+    id: 'text-to-video',
+    label: 'Texto a Video',
+    icon: Film,
+    description: 'Crea videos cinematográficos directamente a partir de un prompt descriptivo.',
+  },
+  {
+    id: 'motion-transfer',
+    label: 'Motion Transfer',
+    icon: Flame,
+    description: 'Transfiere el movimiento y cámara de un video origen hacia nuevas imágenes de referencia (Genjutsu).',
+  },
+];
+
+const SAMPLE_PROMPTS: Record<GenerationCategory, string[]> = {
+  'image-to-video': [
+    'A slow cinematic drone zoom out as the ocean waves gently move with golden sunlight reflecting on the surface',
+    'Subtle wind blowing through the subject hair, warm cinematic lighting, realistic natural eye blinking and gentle breathing',
   ],
-  video: [
+  'text-to-video': [
     'A cinematic drone shot flying over a futuristic neon cyberpunk street in the rain at night, reflections on wet asphalt, 4k',
     'A slow motion tracking shot of golden sunset waves crashing against volcanic black sand cliffs in Iceland, atmospheric mist',
+  ],
+  'motion-transfer': [
+    'Cinematic motion transfer, cyberpunk neon lighting, detailed realistic texture and dramatic camera movement',
+    'Anime cel-shaded aesthetic motion transfer, vibrant colors, fluid hand-drawn anime animation feeling',
+  ],
+  'text-to-image': [
+    'Retrato cinematográfico de una astronauta explorando un bosque bioluminiscente al atardecer, lente anamórfico 35mm, iluminación volumétrica',
+    'Arquitectura minimalista de hormigón y cristal frente a un fiordo nórdico con niebla matutina, fotografía editorial hiperrealista',
   ],
 };
 
 export function GenerationForm({
-  mediaType,
-  onChangeMediaType,
+  category,
+  onChangeCategory,
   selectedModel,
   onSelectModel,
   prompt,
@@ -60,11 +104,12 @@ export function GenerationForm({
   economyMode,
   onToggleEconomyMode,
   hasCredentials,
+  credentials,
   onOpenKeyModal,
   phase,
   onSubmit,
 }: GenerationFormProps) {
-  const modelsForType = MODELS.filter((m) => m.type === mediaType);
+  const modelsForCategory = MODELS.filter((m) => m.category === category);
   const isBusy =
     phase === 'submitting' || phase === 'queued' || phase === 'in_progress';
 
@@ -72,7 +117,10 @@ export function GenerationForm({
     if (phase === 'submitting') return 'Enviando a Higgsfield...';
     if (phase === 'queued') return 'En cola de procesamiento...';
     if (phase === 'in_progress') return 'Generando con IA...';
-    return mediaType === 'video' ? 'Generar Video con IA' : 'Generar Imagen con IA';
+    if (category === 'image-to-video') return 'Animar Imagen a Video con IA';
+    if (category === 'motion-transfer') return 'Transferir Movimiento con Genjutsu';
+    if (category === 'text-to-video') return 'Generar Video desde Texto';
+    return 'Generar Imagen con IA';
   };
 
   return (
@@ -109,72 +157,76 @@ export function GenerationForm({
         </div>
       )}
 
-      {/* Selector de modo: Imagen vs Video + Preset Modo Económico */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="grid flex-1 grid-cols-2 rounded-xl border border-slate-300 bg-slate-100 p-1">
+      {/* Selector de Modos: 4 Modos Claros y Dedicados */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-xs font-bold uppercase tracking-wider text-slate-800">
+            Modo de Generación
+          </label>
+          {/* Toggle Modo Económico */}
           <button
             type="button"
-            onClick={() => onChangeMediaType('image')}
-            className={`flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-bold transition sm:text-sm ${
-              mediaType === 'image'
-                ? 'bg-indigo-600 text-white shadow-xs'
-                : 'text-slate-700 hover:bg-white/70 hover:text-slate-900'
+            onClick={() => onToggleEconomyMode(!economyMode)}
+            title="Ajusta automáticamente menor resolución y duración corta para probar prompts gastando menos créditos"
+            className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-bold transition ${
+              economyMode
+                ? 'border-emerald-400 bg-emerald-50 text-emerald-900 shadow-xs'
+                : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
             }`}
           >
-            <ImageIcon className="h-4 w-4" />
-            Imagen
-          </button>
-          <button
-            type="button"
-            onClick={() => onChangeMediaType('video')}
-            className={`flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-bold transition sm:text-sm ${
-              mediaType === 'video'
-                ? 'bg-indigo-600 text-white shadow-xs'
-                : 'text-slate-700 hover:bg-white/70 hover:text-slate-900'
-            }`}
-          >
-            <Film className="h-4 w-4" />
-            Video
+            <Zap
+              className={`h-3.5 w-3.5 ${
+                economyMode ? 'fill-emerald-600 text-emerald-600' : 'text-slate-500'
+              }`}
+            />
+            <span>Modo Económico</span>
+            <span
+              className={`rounded px-1 py-0.2 text-[10px] font-extrabold ${
+                economyMode
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-slate-200 text-slate-700'
+              }`}
+            >
+              {economyMode ? 'ON' : 'OFF'}
+            </span>
           </button>
         </div>
 
-        {/* Toggle Modo Económico */}
-        <button
-          type="button"
-          onClick={() => onToggleEconomyMode(!economyMode)}
-          title="Ajusta automáticamente menor resolución y duración corta para probar prompts gastando menos créditos"
-          className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-2.5 text-xs font-bold transition ${
-            economyMode
-              ? 'border-emerald-400 bg-emerald-50 text-emerald-900 shadow-xs'
-              : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900'
-          }`}
-        >
-          <Zap
-            className={`h-4 w-4 ${
-              economyMode ? 'fill-emerald-600 text-emerald-600' : 'text-slate-500'
-            }`}
-          />
-          <span>Modo Económico</span>
-          <span
-            className={`rounded px-1.5 py-0.5 text-[10px] font-extrabold ${
-              economyMode
-                ? 'bg-emerald-600 text-white'
-                : 'bg-slate-200 text-slate-700'
-            }`}
-          >
-            {economyMode ? 'ACTIVO' : 'OFF'}
-          </span>
-        </button>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 rounded-xl border border-slate-300 bg-slate-100 p-1.5">
+          {CATEGORY_DEFINITIONS.map((def) => {
+            const Icon = def.icon;
+            const isSelected = category === def.id;
+            return (
+              <button
+                key={def.id}
+                type="button"
+                onClick={() => onChangeCategory(def.id)}
+                className={`flex flex-col items-center justify-center gap-1 rounded-lg py-2.5 px-2 text-center text-xs font-bold transition ${
+                  isSelected
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'text-slate-700 hover:bg-white/80 hover:text-slate-900'
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                <span>{def.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <p className="mt-2 text-xs font-medium text-slate-600">
+          {CATEGORY_DEFINITIONS.find((d) => d.id === category)?.description}
+        </p>
       </div>
 
-      {/* Selector de Modelo desde lib/models.ts */}
+      {/* Selector de Modelo desde lib/models.ts filtrado por categoría */}
       <div>
         <div className="flex items-center justify-between">
           <label
             htmlFor="model-selector"
             className="block text-xs font-bold uppercase tracking-wider text-slate-800"
           >
-            Modelo de IA ({modelsForType.length} disponibles)
+            Modelo de IA ({modelsForCategory.length} disponibles en esta categoría)
           </label>
           <span className="rounded border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[11px] font-bold text-indigo-700">
             {selectedModel.badge}
@@ -187,7 +239,7 @@ export function GenerationForm({
           onChange={(e) => onSelectModel(e.target.value)}
           className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-900 outline-none transition focus:border-indigo-600 focus:ring-2 focus:ring-indigo-600/20"
         >
-          {modelsForType.map((m) => (
+          {modelsForCategory.map((m) => (
             <option key={m.id} value={m.id}>
               {m.name} — ({m.provider})
             </option>
@@ -202,60 +254,13 @@ export function GenerationForm({
         </div>
       </div>
 
-      {/* Textarea de Prompt */}
-      <div>
-        <div className="flex items-center justify-between">
-          <label
-            htmlFor="prompt-textarea"
-            className="block text-xs font-bold uppercase tracking-wider text-slate-800"
-          >
-            Prompt descriptivo
-          </label>
-          <span className="text-xs font-medium text-slate-600">
-            {prompt.length} / 2500 caracteres
-          </span>
-        </div>
-
-        <textarea
-          id="prompt-textarea"
-          rows={4}
-          maxLength={2500}
-          value={prompt}
-          onChange={(e) => onChangePrompt(e.target.value)}
-          placeholder={
-            mediaType === 'video'
-              ? 'Describe la escena, el movimiento de cámara, la iluminación y la acción...'
-              : 'Describe con detalle la imagen, estilo visual, iluminación y composición...'
-          }
-          className="mt-1.5 w-full resize-y rounded-xl border border-slate-300 bg-white p-3.5 text-sm font-medium text-slate-900 placeholder-slate-400 outline-none transition focus:border-indigo-600 focus:ring-2 focus:ring-indigo-600/20"
-        />
-
-        {/* Prompts de ejemplo rápidos */}
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700">
-            <Wand2 className="h-3.5 w-3.5 text-indigo-600" />
-            Ideas rápidas:
-          </span>
-          {SAMPLE_PROMPTS[mediaType].map((sample, idx) => (
-            <button
-              key={idx}
-              type="button"
-              onClick={() => onChangePrompt(sample)}
-              className="rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 transition hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-800"
-            >
-              Ejemplo {idx + 1}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Controles dinámicos según los parámetros del modelo elegido */}
+      {/* Controles dinámicos según los parámetros del modelo elegido (¡Incluye subida de archivo para imágenes y video!) */}
       <div className="space-y-3.5 rounded-xl border border-slate-300 bg-slate-50 p-4">
         <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
           <div className="flex items-center gap-2">
             <Sliders className="h-4 w-4 text-indigo-600" />
             <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-900">
-              Parámetros de {selectedModel.name}
+              Configuración y Referencia de {selectedModel.name}
             </h3>
           </div>
           {economyMode && (
@@ -270,50 +275,28 @@ export function GenerationForm({
             const currentValue = params[param.key] ?? param.defaultValue;
 
             if (param.type === 'url') {
-              const isVideoUrlParam = param.key === 'video_url';
+              const isVideoParam = param.mediaKind === 'video' || param.key === 'video_url';
+              const sampleUrl = isVideoParam
+                ? 'https://assets.mixkit.co/videos/preview/mixkit-woman-walking-in-a-futuristic-city-41566-large.mp4'
+                : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=1000&q=80';
+
               return (
-                <div key={param.key} className="sm:col-span-2">
-                  <div className="flex items-center justify-between">
-                    <label
-                      htmlFor={`param-${param.key}`}
-                      className="block text-xs font-bold text-slate-900"
-                    >
-                      {param.label}{' '}
-                      {param.required && (
-                        <span className="text-rose-600">*</span>
-                      )}
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        onChangeParam(
-                          param.key,
-                          isVideoUrlParam
-                            ? 'https://assets.mixkit.co/videos/preview/mixkit-woman-walking-in-a-futuristic-city-41566-large.mp4'
-                            : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=1000&q=80'
-                        )
-                      }
-                      className="text-xs font-bold text-indigo-600 hover:underline"
-                    >
-                      {isVideoUrlParam
-                        ? 'Usar video MP4 de prueba'
-                        : 'Usar imagen de prueba (Unsplash)'}
-                    </button>
-                  </div>
-                  {param.description && (
-                    <p className="mt-0.5 text-xs text-slate-600">
-                      {param.description}
-                    </p>
-                  )}
-                  <input
-                    id={`param-${param.key}`}
-                    type="text"
-                    value={String(currentValue)}
-                    onChange={(e) => onChangeParam(param.key, e.target.value)}
-                    placeholder={param.placeholder}
-                    className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-medium text-slate-900 placeholder-slate-400 outline-none focus:border-indigo-600"
-                  />
-                </div>
+                <MediaUploader
+                  key={param.key}
+                  label={param.label}
+                  description={param.description}
+                  required={param.required}
+                  value={String(currentValue)}
+                  onChange={(newUrl) => onChangeParam(param.key, newUrl)}
+                  credentials={credentials}
+                  mediaKind={isVideoParam ? 'video' : 'image'}
+                  sampleUrl={sampleUrl}
+                  sampleLabel={
+                    isVideoParam
+                      ? 'Usar video MP4 de prueba'
+                      : 'Usar imagen de prueba (Unsplash)'
+                  }
+                />
               );
             }
 
@@ -434,6 +417,57 @@ export function GenerationForm({
 
             return null;
           })}
+        </div>
+      </div>
+
+      {/* Textarea de Prompt */}
+      <div>
+        <div className="flex items-center justify-between">
+          <label
+            htmlFor="prompt-textarea"
+            className="block text-xs font-bold uppercase tracking-wider text-slate-800"
+          >
+            Prompt descriptivo {category === 'motion-transfer' && '(Opcional)'}
+          </label>
+          <span className="text-xs font-medium text-slate-600">
+            {prompt.length} / 2500 caracteres
+          </span>
+        </div>
+
+        <textarea
+          id="prompt-textarea"
+          rows={3}
+          maxLength={2500}
+          value={prompt}
+          onChange={(e) => onChangePrompt(e.target.value)}
+          placeholder={
+            category === 'image-to-video'
+              ? 'Describe el movimiento de cámara o la animación deseada para la imagen...'
+              : category === 'text-to-video'
+              ? 'Describe la escena, los personajes, la acción y la iluminación...'
+              : category === 'motion-transfer'
+              ? 'Describe cómo transformar el estilo o la estética del movimiento...'
+              : 'Describe la imagen que deseas generar...'
+          }
+          className="mt-1.5 w-full resize-y rounded-xl border border-slate-300 bg-white p-3.5 text-sm font-medium text-slate-900 placeholder-slate-400 outline-none transition focus:border-indigo-600 focus:ring-2 focus:ring-indigo-600/20"
+        />
+
+        {/* Prompts de ejemplo rápidos */}
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700">
+            <Wand2 className="h-3.5 w-3.5 text-indigo-600" />
+            Ideas para este modo:
+          </span>
+          {SAMPLE_PROMPTS[category].map((sample, idx) => (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => onChangePrompt(sample)}
+              className="rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 transition hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-800"
+            >
+              Ejemplo {idx + 1}
+            </button>
+          ))}
         </div>
       </div>
 

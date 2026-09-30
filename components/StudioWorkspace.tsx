@@ -6,6 +6,7 @@ import {
   getModelById,
   getDefaultParamsForModel,
   type MediaType,
+  type GenerationCategory,
   type ParameterValue,
 } from '@/lib/models';
 import { useApiKey } from '@/hooks/useApiKey';
@@ -35,17 +36,17 @@ export function StudioWorkspace() {
   });
 
   // Estado del formulario de generación
-  const [mediaType, setMediaType] = useState<MediaType>('video');
+  const [category, setCategory] = useState<GenerationCategory>('image-to-video');
   const [selectedModelId, setSelectedModelId] = useState<string>(
-    'higgsfield/genjutsu/motion-transfer/v1.0'
+    'kling-video/v3.0/std/image-to-video'
   );
   const [prompt, setPrompt] = useState<string>(
-    'Cinematic motion transfer, cyberpunk neon lighting, detailed realistic texture'
+    'A slow cinematic drone zoom out as the ocean waves gently move with golden sunlight reflecting on the surface'
   );
   const [economyMode, setEconomyMode] = useState<boolean>(false);
   const [params, setParams] = useState<Record<string, ParameterValue>>(() => {
     const initialModel =
-      getModelById('higgsfield/genjutsu/motion-transfer/v1.0') ?? MODELS[0];
+      getModelById('kling-video/v3.0/std/image-to-video') ?? MODELS[0];
     return getDefaultParamsForModel(initialModel, false);
   });
 
@@ -77,12 +78,12 @@ export function StudioWorkspace() {
 
   const selectedModel =
     getModelById(selectedModelId) ??
-    MODELS.find((m) => m.type === mediaType) ??
+    MODELS.find((m) => m.category === category) ??
     MODELS[0];
 
-  const handleChangeMediaType = (newType: MediaType) => {
-    setMediaType(newType);
-    const firstModel = MODELS.find((m) => m.type === newType);
+  const handleChangeCategory = (newCat: GenerationCategory) => {
+    setCategory(newCat);
+    const firstModel = MODELS.find((m) => m.category === newCat);
     if (firstModel) {
       setSelectedModelId(firstModel.id);
       setParams(getDefaultParamsForModel(firstModel, economyMode));
@@ -93,7 +94,7 @@ export function StudioWorkspace() {
     const found = getModelById(newModelId);
     if (!found) return;
     setSelectedModelId(found.id);
-    setMediaType(found.type);
+    setCategory(found.category);
     setParams(getDefaultParamsForModel(found, economyMode));
   };
 
@@ -155,7 +156,7 @@ export function StudioWorkspace() {
   const handleReuseEntry = (entry: HistoryEntry) => {
     const targetModel = getModelById(entry.modelId);
     if (targetModel) {
-      setMediaType(targetModel.type);
+      setCategory(targetModel.category);
       setSelectedModelId(targetModel.id);
       setParams({
         ...getDefaultParamsForModel(targetModel, false),
@@ -226,8 +227,8 @@ export function StudioWorkspace() {
           {/* Columna izquierda: Formulario dinámico */}
           <div className="lg:col-span-6 xl:col-span-5">
             <GenerationForm
-              mediaType={mediaType}
-              onChangeMediaType={handleChangeMediaType}
+              category={category}
+              onChangeCategory={handleChangeCategory}
               selectedModel={selectedModel}
               onSelectModel={handleSelectModel}
               prompt={prompt}
@@ -237,6 +238,7 @@ export function StudioWorkspace() {
               economyMode={economyMode}
               onToggleEconomyMode={handleToggleEconomyMode}
               hasCredentials={apiKeyState.hasCredentials}
+              credentials={apiKeyState.credentials}
               onOpenKeyModal={() => setIsKeyModalOpen(true)}
               phase={pollingState.phase}
               onSubmit={handleSubmitGeneration}
