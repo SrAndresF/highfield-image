@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireTeamAccess } from '@/lib/team-auth';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { extractUserCredentials, sanitizeErrorText } from '@/lib/higgsfield-server';
-import { writeFile, mkdir } from 'node:fs/promises';
-import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -33,11 +31,31 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const contentType = file.type || 'image/jpeg';
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    // Normalizar content-type (S3 y Higgsfield requieren image/jpeg en lugar de image/jpg)
+    let contentType = file.type || 'image/jpeg';
+    if (contentType === 'image/jpg') {
+      contentType = 'image/jpeg';
+    }
 
-    // Intentar primero subir directamente al CDN de Higgsfield mediante /files/generate-upload-url
+    const arrayBuffer = await file.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+
+    const ext =
+      contentType.includes('png')
+        ? 'png'
+        : contentType.includes('webp')
+        ? 'webp'
+        : contentType.includes('gif')
+        ? 'gif'
+        : contentType.includes('mp4')
+        ? 'mp4'
+        : 'jpg';
+
+    const filename = `${randomUUID()}.${ext}`;
+
+    // =========================================================================
+    // 1. INTENTO PRINCIPAL: Subir a Higgsfield CDN (/files/generate-upload-url)
+    // =========================================================================
     try {
       const hfUploadRes = await fetch(
         'https://api.higgsfield.ai/files/generate-upload-url',
@@ -61,12 +79,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         };
 
         if (hfData.upload_url && hfData.public_url) {
+          // La subida presigned a S3 debe enviarse limpia sin headers de autorización
           const s3Put = await fetch(hfData.upload_url, {
             method: 'PUT',
             headers: {
               'Content-Type': contentType,
             },
-            body: buffer,
+            body: uint8Array,
           });
 
           if (s3Put.ok) {
@@ -78,37 +97,84 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         }
       }
     } catch {
-      // Continuar al almacenamiento local si el CDN de Higgsfield no está disponible
+      // Si la API de almacenamiento de Higgsfield no responde o no está habilitada para esta key,
+      // procedemos con el fallback público seguro para serverless
     }
 
-    // Fallback: guardar archivo temporal en carpeta pública del servidor
-    const ext =
-      contentType.includes('png')
-        ? 'png'
-        : contentType.includes('webp')
-        ? 'webp'
-        : contentType.includes('gif')
-        ? 'gif'
-        : contentType.includes('mp4')
-        ? 'mp4'
-        : 'jpg';
+    // =========================================================================
+    // 2. FALLBACK SEGURO SERVERLESS: Alojamiento público HTTPS accesible por Higgsfield
+    // NOTA VERCEL: En AWS Lambda/Vercel el disco es de sólo lectura (/var/task).
+    // Jamás intentamos escribir a disco local. Usamos servicios públicos directos.
+    // =========================================================================
+    try {
+      const catboxData = new FormData();
+      catboxData.append('reqtype', 'fileupload');
+      catboxData.append(
+        'fileToUpload',
+        new Blob([arrayBuffer], { type: contentType }),
+        filename
+      );
 
-    const filename = `${randomUUID()}.${ext}`;
-    const uploadDir = join(process.cwd(), 'public', 'uploads');
-    await mkdir(uploadDir, { recursive: true });
-    await writeFile(join(uploadDir, filename), buffer);
+      const catboxRes = await fetch('https://catbox.moe/user/api.php', {
+        method: 'POST',
+        body: catboxData,
+      });
 
-    const protocol = req.headers.get('x-forwarded-proto') || 'http';
-    const host = req.headers.get('host') || 'localhost:3000';
-    const localUrl = `${protocol}://${host}/uploads/${filename}`;
+      if (catboxRes.ok) {
+        const publicUrl = (await catboxRes.text()).trim();
+        if (publicUrl.startsWith('https://')) {
+          return NextResponse.json({
+            url: publicUrl,
+            provider: 'cloud_storage',
+          });
+        }
+      }
+    } catch {
+      // Intentar segundo proveedor de respaldo
+    }
 
-    return NextResponse.json({
-      url: localUrl,
-      provider: 'local_storage',
-    });
+    // 3. Fallback secundario: tmpfiles.org
+    try {
+      const tmpData = new FormData();
+      tmpData.append(
+        'file',
+        new Blob([arrayBuffer], { type: contentType }),
+        filename
+      );
+
+      const tmpRes = await fetch('https://tmpfiles.org/api/v1/upload', {
+        method: 'POST',
+        body: tmpData,
+      });
+
+      if (tmpRes.ok) {
+        const tmpJson = (await tmpRes.json()) as {
+          data?: { url?: string };
+        };
+        const rawUrl = tmpJson?.data?.url;
+        if (rawUrl && typeof rawUrl === 'string') {
+          const directUrl = rawUrl.replace('tmpfiles.org/', 'tmpfiles.org/dl/');
+          return NextResponse.json({
+            url: directUrl,
+            provider: 'tmpfiles_storage',
+          });
+        }
+      }
+    } catch {
+      // Continuar a error controlado
+    }
+
+    return NextResponse.json(
+      {
+        error:
+          'No fue posible obtener un enlace HTTPS público para el archivo. Puedes ingresar una URL pública directamente usando la opción "Enlace URL".',
+        code: 'UPLOAD_FAILED',
+      },
+      { status: 502 }
+    );
   } catch (error) {
     const safeError = sanitizeErrorText(
-      error instanceof Error ? error.message : 'Error desconocido al subir archivo'
+      error instanceof Error ? error.message : 'Error inesperado al subir archivo'
     );
     return NextResponse.json(
       { error: `Error al procesar el archivo: ${safeError}` },

@@ -161,7 +161,7 @@ export function MediaUploader({
           <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-slate-300 bg-slate-900">
             {isVideo ? (
               <video
-                src={value}
+                src={value.split(',')[0]?.trim()}
                 className="h-full w-full object-cover"
                 muted
                 playsInline
@@ -169,7 +169,7 @@ export function MediaUploader({
             ) : (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={value}
+                src={value.split(',')[0]?.trim()}
                 alt="Vista previa"
                 className="h-full w-full object-cover"
               />
@@ -182,6 +182,8 @@ export function MediaUploader({
               <span>
                 {mediaKind === 'video'
                   ? 'Video de referencia cargado'
+                  : value.includes(',')
+                  ? `${value.split(',').filter((u) => u.trim()).length} imágenes de referencia cargadas`
                   : 'Imagen de referencia cargada'}
               </span>
             </div>
