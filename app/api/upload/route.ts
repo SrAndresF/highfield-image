@@ -58,57 +58,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const filename = `${randomUUID()}.${ext}`;
 
     // =========================================================================
-    // 1. INTENTO PRINCIPAL: Subir a Higgsfield CDN (/files/generate-upload-url)
-    // =========================================================================
-    try {
-      const hfUploadRes = await fetch(
-        'https://api.higgsfield.ai/files/generate-upload-url',
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Key ${credsResult.credentials.keyId}:${credsResult.credentials.keySecret}`,
-            'hf-api-key': credsResult.credentials.keyId,
-            'hf-secret': credsResult.credentials.keySecret,
-            'Content-Type': 'application/json',
-            'User-Agent': 'higgsfield-server-js/2.0',
-          },
-          body: JSON.stringify({ content_type: contentType }),
-        }
-      );
-
-      if (hfUploadRes.ok) {
-        const hfData = (await hfUploadRes.json()) as {
-          upload_url?: string;
-          public_url?: string;
-        };
-
-        if (hfData.upload_url && hfData.public_url) {
-          // La subida presigned a S3 debe enviarse limpia sin headers de autorización
-          const s3Put = await fetch(hfData.upload_url, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': contentType,
-            },
-            body: uint8Array,
-          });
-
-          if (s3Put.ok) {
-            return NextResponse.json({
-              url: hfData.public_url,
-              provider: 'higgsfield_cdn',
-            });
-          }
-        }
-      }
-    } catch {
-      // Si la API de almacenamiento de Higgsfield no responde o no está habilitada para esta key,
-      // procedemos con el fallback público seguro para serverless
-    }
-
-    // =========================================================================
-    // 2. FALLBACK SEGURO SERVERLESS: Alojamiento público HTTPS accesible por Higgsfield
-    // NOTA VERCEL: En AWS Lambda/Vercel el disco es de sólo lectura (/var/task).
-    // Jamás intentamos escribir a disco local. Usamos servicios públicos directos.
+    // 1. INTENTO PRINCIPAL: Alojamiento en la nube directo (Catbox)
     // =========================================================================
     try {
       const catboxData = new FormData();
@@ -134,7 +84,41 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         }
       }
     } catch {
-      // Intentar segundo proveedor de respaldo
+      // Continuar al intento 2
+    }
+
+    // =========================================================================
+    // 2. INTENTO SECUNDARIO: Litterbox (72 horas de persistencia)
+    // =========================================================================
+    try {
+      const litterData = new FormData();
+      litterData.append('reqtype', 'fileupload');
+      litterData.append('time', '72h');
+      litterData.append(
+        'fileToUpload',
+        new Blob([arrayBuffer], { type: contentType }),
+        filename
+      );
+
+      const litterRes = await fetch(
+        'https://litterbox.catbox.moe/resources/internals/api.php',
+        {
+          method: 'POST',
+          body: litterData,
+        }
+      );
+
+      if (litterRes.ok) {
+        const publicUrl = (await litterRes.text()).trim();
+        if (publicUrl.startsWith('https://')) {
+          return NextResponse.json({
+            url: publicUrl,
+            provider: 'litterbox_storage',
+          });
+        }
+      }
+    } catch {
+      // Continuar
     }
 
     // 3. Fallback secundario: tmpfiles.org

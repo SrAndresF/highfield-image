@@ -76,141 +76,78 @@ export function MediaUploader({
       file.type.startsWith('video/') ||
       /\.(mp4|mov|webm)$/i.test(file.name);
 
-    let contentType = file.type;
-    if (!contentType) {
-      if (file.name.endsWith('.mp4')) contentType = 'video/mp4';
-      else if (file.name.endsWith('.mov')) contentType = 'video/quicktime';
-      else if (file.name.endsWith('.png')) contentType = 'image/png';
-      else if (file.name.endsWith('.webp')) contentType = 'image/webp';
-      else contentType = fileIsVideo ? 'video/mp4' : 'image/jpeg';
-    }
-    if (contentType === 'image/jpg') contentType = 'image/jpeg';
-    if (contentType === 'video/quicktime') contentType = 'video/mp4';
-
     onStatusUpdate?.(
       fileIsVideo
-        ? 'Generando enlace de subida segura para video...'
-        : 'Generando enlace de subida...'
+        ? `Subiendo video (${(file.size / (1024 * 1024)).toFixed(1)} MB)...`
+        : 'Subiendo imagen...'
     );
 
-    // 1. INTENTO PRINCIPAL: Subida directa presignada a S3 (sin pasar bytes por Vercel)
-    let presignOk = false;
+    // 1. INTENTO PRINCIPAL: Subida directa en la nube de alta velocidad con soporte nativo de CORS (Litterbox)
+    // Permite archivos de hasta 1 GB sin el límite de 4.5 MB de Vercel y sin errores 403 de S3.
     try {
-      const presignRes = await fetch('/api/upload/presign', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-hf-credentials': credentials,
-        },
-        body: JSON.stringify({
-          contentType,
-          filename: file.name,
-          mediaKind: fileIsVideo ? 'video' : 'image',
-          fileSize: file.size,
-        }),
-      });
+      const formData = new FormData();
+      formData.append('reqtype', 'fileupload');
+      formData.append('time', '72h'); // 3 días de persistencia, ideal para jobs de IA
+      formData.append('fileToUpload', file, file.name);
 
-      if (presignRes.ok) {
-        const presignData = (await presignRes.json()) as {
-          uploadUrl?: string;
-          publicUrl?: string;
-          contentType?: string;
-          slotId?: string;
-        };
-
-        if (presignData.uploadUrl && presignData.publicUrl) {
-          presignOk = true;
-          onStatusUpdate?.(
-            fileIsVideo
-              ? `Subiendo video (${(file.size / (1024 * 1024)).toFixed(1)} MB) a Higgsfield CDN...`
-              : 'Subiendo archivo a Higgsfield CDN...'
-          );
-
-          const s3PutRes = await fetch(presignData.uploadUrl, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': presignData.contentType || contentType,
-            },
-            body: file,
-          });
-
-          if (!s3PutRes.ok) {
-            throw new Error(
-              `Error al transferir datos a Higgsfield Storage (${s3PutRes.status} ${s3PutRes.statusText}).`
-            );
-          }
-
-          // Si requiere confirmación de slot de agente
-          if (presignData.slotId) {
-            try {
-              await fetch('/api/upload/confirm', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'x-hf-credentials': credentials,
-                },
-                body: JSON.stringify({
-                  slotId: presignData.slotId,
-                  mediaKind: fileIsVideo ? 'video' : 'image',
-                }),
-              });
-            } catch {
-              // no crítico
-            }
-          }
-
-          return presignData.publicUrl;
+      const res = await fetch(
+        'https://litterbox.catbox.moe/resources/internals/api.php',
+        {
+          method: 'POST',
+          body: formData,
         }
-      } else {
-        const errJson = (await presignRes.json().catch(() => ({}))) as {
+      );
+
+      if (res.ok) {
+        const text = (await res.text()).trim();
+        if (text.startsWith('https://')) {
+          return text;
+        }
+      }
+    } catch {
+      // Si falla por bloqueo del navegador o adblock, intentar el fallback por servidor
+    }
+
+    // 2. FALLBACK A TRAVÉS DEL SERVIDOR (para archivos <= 4.2 MB)
+    if (file.size <= 4.2 * 1024 * 1024) {
+      onStatusUpdate?.('Subiendo a través del servidor...');
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const serverRes = await fetch('/api/upload', {
+          method: 'POST',
+          headers: {
+            'x-hf-credentials': credentials,
+          },
+          body: formData,
+        });
+
+        const data = (await serverRes.json().catch(() => ({}))) as {
+          url?: string;
           error?: string;
         };
-        // Si el archivo supera 4 MB y presign falló, no podemos usar el fallback de Vercel
-        if (file.size > 4 * 1024 * 1024 && errJson.error) {
-          throw new Error(errJson.error);
+
+        if (serverRes.ok && data.url) {
+          return data.url;
         }
-      }
-    } catch (err) {
-      if (presignOk) {
-        throw err;
-      }
-      if (file.size > 4.2 * 1024 * 1024) {
-        throw new Error(
-          `El archivo pesa ${(file.size / (1024 * 1024)).toFixed(1)} MB (supera los 4.5 MB del servidor) y no se pudo obtener enlace directo. Verifica tu API Key o ingresa la URL en "Enlace URL".`
-        );
+        if (data.error) {
+          throw new Error(data.error);
+        }
+      } catch (err) {
+        if (err instanceof Error) throw err;
       }
     }
 
-    // 2. FALLBACK PARA ARCHIVOS PEQUEÑOS (<= 4 MB) a través de /api/upload
-    if (file.size <= 4.2 * 1024 * 1024) {
-      onStatusUpdate?.('Subiendo a través del servidor...');
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const fallbackRes = await fetch('/api/upload', {
-        method: 'POST',
-        headers: {
-          'x-hf-credentials': credentials,
-        },
-        body: formData,
-      });
-
-      const data = (await fallbackRes.json().catch(() => ({}))) as {
-        url?: string;
-        error?: string;
-      };
-
-      if (fallbackRes.ok && data.url) {
-        return data.url;
-      }
-
+    // 3. Fallback adicional si el archivo supera 4.2 MB y la subida directa fue bloqueada
+    if (file.size > 4.2 * 1024 * 1024) {
       throw new Error(
-        data.error ?? 'No fue posible subir el archivo al almacenamiento.'
+        `El archivo pesa ${(file.size / (1024 * 1024)).toFixed(1)} MB. La subida directa fue bloqueada por tu navegador o red. Puedes ingresar una URL pública directamente usando la opción "Enlace URL".`
       );
     }
 
     throw new Error(
-      'No fue posible subir el archivo. Intenta ingresar una URL directa.'
+      'No fue posible subir el archivo. Intenta ingresar una URL directa en la pestaña "Enlace URL".'
     );
   };
 
