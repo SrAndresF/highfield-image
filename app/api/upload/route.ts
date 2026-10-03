@@ -49,6 +49,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         ? 'gif'
         : contentType.includes('mp4')
         ? 'mp4'
+        : contentType.includes('webm')
+        ? 'webm'
+        : contentType.includes('quicktime')
+        ? 'mov'
         : 'jpg';
 
     const filename = `${randomUUID()}.${ext}`;

@@ -45,6 +45,8 @@ export interface UrlParameter extends BaseParameter {
   placeholder: string;
   defaultValue: string;
   mediaKind?: 'image' | 'video';
+  allowMultiple?: boolean;
+  maxFiles?: number;
 }
 
 export type ModelParameter =
@@ -399,13 +401,16 @@ export const MODELS: readonly ModelConfig[] = [
       },
       {
         key: 'image_url',
-        label: 'Imagen(es) de Referencia (1 a 8 URLs)',
-        description: 'Sube tu imagen de referencia o pega URLs separadas por coma para definir el nuevo personaje o estilo.',
+        label: 'Imagen(es) de Referencia (1 a 8 imágenes)',
+        description:
+          'Sube de 1 a 8 imágenes de referencia (puedes seleccionar varias a la vez o agregarlas una a una) para definir el nuevo personaje o estilo.',
         type: 'url',
         placeholder: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb',
         defaultValue: '',
         required: true,
         mediaKind: 'image',
+        allowMultiple: true,
+        maxFiles: 8,
       },
     ],
     economyPreset: {},

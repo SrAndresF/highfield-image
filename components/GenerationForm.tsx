@@ -296,6 +296,8 @@ export function GenerationForm({
                       ? 'Usar video MP4 de prueba'
                       : 'Usar imagen de prueba (Unsplash)'
                   }
+                  allowMultiple={param.allowMultiple}
+                  maxFiles={param.maxFiles}
                 />
               );
             }
