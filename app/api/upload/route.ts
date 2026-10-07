@@ -58,7 +58,40 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const filename = `${randomUUID()}.${ext}`;
 
     // =========================================================================
-    // 1. INTENTO PRINCIPAL: Alojamiento en la nube directo (Catbox)
+    // 1. INTENTO PRINCIPAL: Alojamiento público Uguu (Permite descargas directas de Python/AI)
+    // =========================================================================
+    try {
+      const uguuData = new FormData();
+      uguuData.append(
+        'files[]',
+        new Blob([arrayBuffer], { type: contentType }),
+        filename
+      );
+
+      const uguuRes = await fetch('https://uguu.se/upload', {
+        method: 'POST',
+        body: uguuData,
+      });
+
+      if (uguuRes.ok) {
+        const uguuJson = (await uguuRes.json()) as {
+          success?: boolean;
+          files?: Array<{ url?: string }>;
+        };
+        const firstUrl = uguuJson.files?.[0]?.url;
+        if (firstUrl && firstUrl.startsWith('https://')) {
+          return NextResponse.json({
+            url: firstUrl,
+            provider: 'uguu_storage',
+          });
+        }
+      }
+    } catch {
+      // Continuar al intento 2
+    }
+
+    // =========================================================================
+    // 2. INTENTO SECUNDARIO: Catbox
     // =========================================================================
     try {
       const catboxData = new FormData();
@@ -84,7 +117,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         }
       }
     } catch {
-      // Continuar al intento 2
+      // Continuar al intento 3
     }
 
     // =========================================================================

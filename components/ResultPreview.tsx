@@ -14,6 +14,7 @@ import {
   Image as ImageIcon,
   ExternalLink,
   AlertTriangle,
+  RotateCcw,
 } from 'lucide-react';
 import type { ActiveGenerationResult, JobPhase } from '@/hooks/usePolling';
 
@@ -25,6 +26,7 @@ interface ResultPreviewProps {
   activeResult: ActiveGenerationResult | null;
   isCanceling: boolean;
   onCancel: () => void;
+  onRetry?: () => void;
 }
 
 export function ResultPreview({
@@ -35,6 +37,7 @@ export function ResultPreview({
   activeResult,
   isCanceling,
   onCancel,
+  onRetry,
 }: ResultPreviewProps) {
   const [selectedImageIndex, setSelectedImageIndex] = useState<number>(0);
   const [copied, setCopied] = useState<boolean>(false);
@@ -175,8 +178,8 @@ export function ResultPreview({
       {/* Estado de error o cancelación */}
       {!isRunning &&
         (phase === 'failed' || phase === 'nsfw' || phase === 'canceled') && (
-          <div className="my-auto flex flex-col items-center justify-center py-12 text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-100 text-rose-600">
+          <div className="my-auto flex flex-col items-center justify-center py-10 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-100 text-rose-600 shadow-xs">
               <AlertCircle className="h-7 w-7" />
             </div>
             <h3 className="mt-4 text-base font-extrabold text-slate-900">
@@ -186,10 +189,44 @@ export function ResultPreview({
                 ? 'Bloqueado por filtro de moderación (NSFW)'
                 : 'No se pudo completar la generación'}
             </h3>
-            <p className="mt-2 max-w-md rounded-xl border border-rose-300 bg-rose-50 p-3.5 text-xs font-medium leading-relaxed text-rose-900">
-              {errorMessage ??
-                'Ocurrió un error inesperado al procesar el trabajo.'}
-            </p>
+
+            <div className="mt-3.5 w-full max-w-md space-y-3">
+              <p className="rounded-xl border border-rose-300 bg-rose-50 p-3.5 text-xs font-semibold leading-relaxed text-rose-900">
+                {errorMessage ??
+                  'Ocurrió un error inesperado al procesar el trabajo en Higgsfield.'}
+              </p>
+
+              {/* Botón prominente de reintento */}
+              {onRetry && (
+                <button
+                  type="button"
+                  onClick={onRetry}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  <span>Reintentar generación</span>
+                </button>
+              )}
+
+              {/* Guía de solución de problemas para video */}
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-left text-xs text-slate-700 shadow-2xs">
+                <p className="font-extrabold text-slate-900">💡 Sugerencias para video:</p>
+                <ul className="mt-1.5 list-disc space-y-1.5 pl-4 text-[11px] text-slate-600">
+                  <li>
+                    <strong>Créditos protegidos:</strong> Higgsfield reembolsa automáticamente los créditos de cualquier generación fallida.
+                  </li>
+                  <li>
+                    <strong>Formato del video:</strong> En Genjutsu, el video debe durar entre 4 y 30 segundos y estar en MP4/WebM.
+                  </li>
+                  <li>
+                    <strong>Prueba sin audio:</strong> En Seedance, desactivar &ldquo;Generar audio sincronizado&rdquo; suele evitar fallos si el motor de sonido está saturado.
+                  </li>
+                  <li>
+                    <strong>Sobrecarga temporal:</strong> Los clústeres GPU de Higgsfield pueden saturarse brevemente; reintentar unos segundos después suele resolverlo.
+                  </li>
+                </ul>
+              </div>
+            </div>
           </div>
         )}
 

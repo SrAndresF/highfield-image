@@ -138,8 +138,9 @@ export const MODELS: readonly ModelConfig[] = [
         key: 'aspect_ratio',
         label: 'Relación de aspecto',
         type: 'select',
-        defaultValue: '16:9',
+        defaultValue: 'original',
         options: [
+          { label: 'Original (Mantener aspecto de la imagen)', value: 'original' },
           { label: '16:9 (Horizontal)', value: '16:9' },
           { label: '9:16 (Vertical / Móvil)', value: '9:16' },
           { label: '1:1 (Cuadrado)', value: '1:1' },
@@ -163,7 +164,7 @@ export const MODELS: readonly ModelConfig[] = [
     economyPreset: {
       duration: 5,
       resolution: '720p',
-      aspect_ratio: '16:9',
+      aspect_ratio: 'original',
       output_format: 'mp4',
       generate_audio: false,
     },
@@ -172,15 +173,23 @@ export const MODELS: readonly ModelConfig[] = [
       economyLabel: '~$0.20 USD (5s · 720p · sin audio)',
       note: 'El modo económico reduce la duración a 5s y desactiva síntesis de audio para ahorrar créditos.',
     },
-    transformPayload: (prompt, rawParams) => ({
-      image_url: String(rawParams.image_url ?? '').trim(),
-      prompt: prompt.trim(),
-      duration: Number(rawParams.duration ?? 5),
-      resolution: String(rawParams.resolution ?? '720p'),
-      aspect_ratio: String(rawParams.aspect_ratio ?? '16:9'),
-      output_format: String(rawParams.output_format ?? 'mp4'),
-      generate_audio: Boolean(rawParams.generate_audio ?? true),
-    }),
+    transformPayload: (prompt, rawParams) => {
+      const payload: Record<string, unknown> = {
+        image_url: String(rawParams.image_url ?? '').trim(),
+        prompt: prompt.trim(),
+        duration: Number(rawParams.duration ?? 5),
+        resolution: String(rawParams.resolution ?? '720p'),
+        output_format: String(rawParams.output_format ?? 'mp4'),
+        generate_audio: Boolean(rawParams.generate_audio ?? true),
+      };
+
+      const ar = String(rawParams.aspect_ratio ?? 'original');
+      if (ar && ar !== 'original') {
+        payload.aspect_ratio = ar;
+      }
+
+      return payload;
+    },
   },
   {
     id: 'kling-video/v3.0/std/image-to-video',
@@ -394,7 +403,7 @@ export const MODELS: readonly ModelConfig[] = [
         label: 'Video Origen (mín. 4s, máx. 30s)',
         description: 'Sube tu video o pega el enlace cuyo movimiento deseas transferir.',
         type: 'url',
-        placeholder: 'https://assets.mixkit.co/videos/preview/mixkit-woman-walking-in-a-futuristic-city-41566-large.mp4',
+        placeholder: 'https://download.samplelib.com/mp4/sample-5s.mp4',
         defaultValue: '',
         required: true,
         mediaKind: 'video',
@@ -427,11 +436,17 @@ export const MODELS: readonly ModelConfig[] = [
         .filter((u) => u.length > 0)
         .slice(0, 8);
 
-      return {
+      const payload: Record<string, unknown> = {
         video_url: videoUrl,
         image_urls: rawImageUrls,
-        prompt: prompt.trim(),
       };
+
+      const cleanPrompt = prompt.trim();
+      if (cleanPrompt) {
+        payload.prompt = cleanPrompt;
+      }
+
+      return payload;
     },
   },
 

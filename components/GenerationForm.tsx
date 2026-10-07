@@ -277,7 +277,7 @@ export function GenerationForm({
             if (param.type === 'url') {
               const isVideoParam = param.mediaKind === 'video' || param.key === 'video_url';
               const sampleUrl = isVideoParam
-                ? 'https://assets.mixkit.co/videos/preview/mixkit-woman-walking-in-a-futuristic-city-41566-large.mp4'
+                ? 'https://download.samplelib.com/mp4/sample-5s.mp4'
                 : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=1000&q=80';
 
               return (

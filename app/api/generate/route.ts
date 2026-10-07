@@ -19,6 +19,47 @@ const generateRequestSchema = z.object({
   params: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).default({}),
 });
 
+function sanitizeMediaUrlsForWorkers(
+  data: Record<string, unknown>,
+  baseUrl: string
+): Record<string, unknown> {
+  const isTargetUrl = (url: string) => {
+    return (
+      url.includes('catbox.moe') ||
+      url.includes('litterbox') ||
+      url.includes('tmpfiles.org')
+    );
+  };
+
+  const transformUrl = (url: string): string => {
+    if (typeof url === 'string' && isTargetUrl(url)) {
+      if (url.includes('/api/media?url=')) return url;
+      return `${baseUrl}/api/media?url=${encodeURIComponent(url.trim())}`;
+    }
+    return url;
+  };
+
+  const processVal = (val: unknown): unknown => {
+    if (typeof val === 'string') {
+      return transformUrl(val);
+    }
+    if (Array.isArray(val)) {
+      return val.map((item) => processVal(item));
+    }
+    if (val && typeof val === 'object') {
+      const obj = val as Record<string, unknown>;
+      const out: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(obj)) {
+        out[k] = processVal(v);
+      }
+      return out;
+    }
+    return val;
+  };
+
+  return processVal(data) as Record<string, unknown>;
+}
+
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const teamAuthError = requireTeamAccess(req);
   if (teamAuthError) return teamAuthError;
@@ -181,11 +222,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         ...validatedParams,
       };
 
+  // Re-escribir URLs alojadas en Catbox/Litterbox para que los workers Python de Higgsfield
+  // puedan descargarlas a través de nuestro proxy seguro sin bloqueos de Cloudflare.
+  const proto = req.headers.get('x-forwarded-proto') || 'https';
+  const host =
+    req.headers.get('x-forwarded-host') ||
+    req.headers.get('host') ||
+    'localhost:3000';
+  const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
+  const baseUrl = `${proto}://${host}`;
+
+  const processedPayload = isLocal
+    ? finalPayload
+    : sanitizeMediaUrlsForWorkers(finalPayload, baseUrl);
+
   try {
     const v2Job = await submitGenerationJob(
       credsResult.credentials,
       model.id,
-      finalPayload
+      processedPayload
     );
 
     const requestId =

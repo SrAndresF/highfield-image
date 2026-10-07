@@ -135,8 +135,8 @@ export function StudioWorkspace() {
     [historyState]
   );
 
-  const handleSubmitGeneration = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmitGeneration = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (!apiKeyState.hasCredentials) {
       setIsKeyModalOpen(true);
       return;
@@ -257,6 +257,7 @@ export function StudioWorkspace() {
               onCancel={() =>
                 void pollingState.cancelGeneration(apiKeyState.credentials)
               }
+              onRetry={() => void handleSubmitGeneration()}
             />
           </div>
         </div>

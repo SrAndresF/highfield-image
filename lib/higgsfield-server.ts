@@ -242,13 +242,43 @@ export async function fetchJobStatus(
 
   let errorMessage: string | undefined;
   if (status === 'failed') {
-    errorMessage =
-      typeof data.error === 'string'
-        ? sanitizeErrorText(data.error, creds)
-        : 'La generación falló en los servidores de Higgsfield. Tus créditos reservados se reembolsan automáticamente.';
+    let detailedErr = '';
+    if (typeof data.error === 'string' && data.error) {
+      detailedErr = data.error;
+    } else if (typeof data.detail === 'string' && data.detail) {
+      detailedErr = data.detail;
+    } else if (typeof data.message === 'string' && data.message) {
+      detailedErr = data.message;
+    } else if (typeof data.reason === 'string' && data.reason) {
+      detailedErr = data.reason;
+    }
+
+    if (Array.isArray(data.jobs)) {
+      for (const j of data.jobs) {
+        if (j && typeof j === 'object') {
+          const jo = j as Record<string, unknown>;
+          if (typeof jo.error === 'string' && jo.error && jo.error !== 'Generation failed') {
+            detailedErr = detailedErr ? `${detailedErr} (${jo.error})` : jo.error;
+          }
+        }
+      }
+    }
+
+    if (detailedErr) {
+      const sanitized = sanitizeErrorText(detailedErr, creds);
+      if (sanitized.toLowerCase().trim() === 'generation failed') {
+        errorMessage =
+          'La generación no pudo ser completada por Higgsfield (Generation failed). Esto suele ocurrir si el archivo de origen no pudo descargarse o si el clúster GPU tuvo una sobrecarga temporal. Tus créditos reservados se reembolsan automáticamente.';
+      } else {
+        errorMessage = `Error de Higgsfield: ${sanitized}. Tus créditos reservados se reembolsan automáticamente.`;
+      }
+    } else {
+      errorMessage =
+        'La generación falló en los servidores de Higgsfield. Tus créditos reservados se reembolsan automáticamente.';
+    }
   } else if (status === 'nsfw') {
     errorMessage =
-      'El contenido generado fue bloqueado por el filtro de moderación (NSFW). Los créditos han sido reembolsados.';
+      'El contenido generado o el material de entrada fue bloqueado por el filtro de seguridad (NSFW). Los créditos han sido reembolsados automáticamente.';
   }
 
   return {
