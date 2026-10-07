@@ -400,8 +400,8 @@ export const MODELS: readonly ModelConfig[] = [
     parameters: [
       {
         key: 'video_url',
-        label: 'Video Origen (mín. 4s, máx. 30s)',
-        description: 'Sube tu video o pega el enlace cuyo movimiento deseas transferir.',
+        label: 'Video Origen (4s a 30s · recomendado 4-5s para economizar saldo)',
+        description: 'Sube tu video o pega el enlace. Consejo: Higgsfield factura por segundo, por lo que clips cortos de 4-5s ahorran saldo de tu cuenta API.',
         type: 'url',
         placeholder: 'https://download.samplelib.com/mp4/sample-5s.mp4',
         defaultValue: '',

@@ -203,21 +203,26 @@ export function ResultPreview({
                 <div className="rounded-xl border border-amber-300 bg-amber-50 p-3.5 text-left text-xs text-amber-900 shadow-2xs">
                   <p className="font-extrabold text-amber-950 flex items-center gap-1.5">
                     <span>💳</span>
-                    <span>¿Por qué ocurre esto si tienes créditos en Higgsfield?</span>
+                    <span>¿Por qué ocurre esto si tienes $5 USD en open.higgsfield.ai?</span>
                   </p>
-                  <p className="mt-1.5 text-[11px] leading-relaxed text-amber-900">
-                    Higgsfield separa su <strong>suscripción web</strong> (higgsfield.ai con créditos de usuario) de su <strong>API de Desarrolladores</strong> (open.higgsfield.ai con saldo en USD prepagado).
-                  </p>
-                  <p className="mt-1 text-[11px] leading-relaxed text-amber-900">
-                    Tu API Key consume directamente del <strong>saldo prepagado en USD</strong> de tu consola de desarrollador.
-                  </p>
+                  <ul className="mt-2 list-disc space-y-1.5 pl-4 text-[11px] leading-relaxed text-amber-900">
+                    <li>
+                      <strong>Facturación por segundo de video:</strong> La API de Higgsfield cobra por segundo generado. Si tu video origen dura 15, 20 o 30 segundos, el costo calculado o la reserva preventiva de GPU puede superar los $5.00 USD. <em>Prueba recortando el video a un clip corto de 4 a 5 segundos.</em>
+                    </li>
+                    <li>
+                      <strong>Workspace u Organización correcta:</strong> En la esquina superior de open.higgsfield.ai, verifica que tu API Key pertenezca al mismo Workspace donde se acreditaron los fondos.
+                    </li>
+                    <li>
+                      <strong>Prueba de descarte rápido:</strong> Selecciona el modo <em>Texto a Imagen</em> (Flux Pro, ~$0.05 USD) o <em>Seedance (5s · 720p)</em>. Si ese modelo genera, comprobarás que tu clave está 100% activa y que el video de Genjutsu exigía una reserva mayor a $5 USD.
+                    </li>
+                  </ul>
                   <a
                     href="https://open.higgsfield.ai/billing"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-amber-600 px-3.5 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-amber-700"
+                    className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-amber-600 px-3.5 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-amber-700"
                   >
-                    <span>Recargar saldo en open.higgsfield.ai/billing</span>
+                    <span>Ver saldo y transacciones en open.higgsfield.ai/billing</span>
                     <ExternalLink className="h-3.5 w-3.5" />
                   </a>
                 </div>
