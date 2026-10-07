@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireTeamAccess } from '@/lib/team-auth';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { extractUserCredentials, sanitizeErrorText } from '@/lib/higgsfield-server';
+import { resolveDirectMediaUrl } from '@/lib/media-utils';
 import { randomUUID } from 'node:crypto';
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -174,7 +175,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         };
         const rawUrl = tmpJson?.data?.url;
         if (rawUrl && typeof rawUrl === 'string') {
-          const directUrl = rawUrl.replace('tmpfiles.org/', 'tmpfiles.org/dl/');
+          const directUrl = await resolveDirectMediaUrl(rawUrl);
           return NextResponse.json({
             url: directUrl,
             provider: 'tmpfiles_storage',

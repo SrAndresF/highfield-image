@@ -82,30 +82,51 @@ export function MediaUploader({
         : 'Subiendo imagen...'
     );
 
-    // 1. INTENTO PRINCIPAL: Subida directa en la nube de alta velocidad con soporte nativo de CORS (Litterbox)
-    // Permite archivos de hasta 1 GB sin el límite de 4.5 MB de Vercel y sin errores 403 de S3.
+    const fileSizeMb = (file.size / (1024 * 1024)).toFixed(1);
+
+    // 1. INTENTO PRINCIPAL: Subida directa en la nube con soporte nativo de CORS (tmpfiles.org)
+    // Permite archivos de hasta 10 GB sin el límite de 4.5 MB de Vercel y sin bloqueos de ad-blockers.
     try {
       const formData = new FormData();
-      formData.append('reqtype', 'fileupload');
-      formData.append('time', '72h'); // 3 días de persistencia, ideal para jobs de IA
-      formData.append('fileToUpload', file, file.name);
+      formData.append('file', file, file.name);
 
-      const res = await fetch(
-        'https://litterbox.catbox.moe/resources/internals/api.php',
-        {
-          method: 'POST',
-          body: formData,
-        }
-      );
+      const res = await fetch('https://tmpfiles.org/api/v1/upload', {
+        method: 'POST',
+        body: formData,
+      });
 
       if (res.ok) {
-        const text = (await res.text()).trim();
-        if (text.startsWith('https://')) {
-          return text;
+        const json = (await res.json()) as {
+          status?: string;
+          data?: { url?: string };
+        };
+
+        if (json?.status === 'success' && json?.data?.url) {
+          const rawUrl = json.data.url;
+          onStatusUpdate?.('Generando enlace de transmisión...');
+
+          // Resolver enlace de descarga directa para reproducción instantánea y envío al modelo
+          try {
+            const resolveRes = await fetch('/api/upload/resolve', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url: rawUrl }),
+            });
+
+            if (resolveRes.ok) {
+              const resolveJson = (await resolveRes.json()) as { url?: string };
+              if (resolveJson.url) {
+                return resolveJson.url;
+              }
+            }
+          } catch {
+            // Si la resolución auxiliar falla, retornar rawUrl (el proxy de medios lo resolverá)
+          }
+          return rawUrl;
         }
       }
     } catch {
-      // Si falla por bloqueo del navegador o adblock, intentar el fallback por servidor
+      // Si la subida directa falla en el cliente (p. ej. fallo temporal de red), continuar al fallback
     }
 
     // 2. FALLBACK A TRAVÉS DEL SERVIDOR (para archivos <= 4.2 MB)
@@ -139,10 +160,10 @@ export function MediaUploader({
       }
     }
 
-    // 3. Fallback adicional si el archivo supera 4.2 MB y la subida directa fue bloqueada
+    // 3. Fallback adicional si el archivo supera 4.2 MB y la subida directa falló
     if (file.size > 4.2 * 1024 * 1024) {
       throw new Error(
-        `El archivo pesa ${(file.size / (1024 * 1024)).toFixed(1)} MB. La subida directa fue bloqueada por tu navegador o red. Puedes ingresar una URL pública directamente usando la opción "Enlace URL".`
+        `El archivo pesa ${fileSizeMb} MB. La subida directa encontró una interrupción de red. Puedes intentar de nuevo o ingresar un enlace público en la pestaña "Enlace URL".`
       );
     }
 
@@ -376,7 +397,11 @@ export function MediaUploader({
                 <div className="relative aspect-square w-full overflow-hidden bg-slate-900">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={url}
+                    src={
+                      url.includes('tmpfiles.org')
+                        ? `/api/media?url=${encodeURIComponent(url)}`
+                        : url
+                    }
                     alt={`Referencia ${idx + 1}`}
                     className="h-full w-full object-cover transition group-hover:scale-105"
                   />
@@ -451,7 +476,11 @@ export function MediaUploader({
             {isVideo ? (
               <div className="relative max-h-48 w-full overflow-hidden rounded-lg border border-slate-300 bg-black sm:w-64">
                 <video
-                  src={currentUrls[0]}
+                  src={
+                    currentUrls[0].includes('tmpfiles.org')
+                      ? `/api/media?url=${encodeURIComponent(currentUrls[0])}`
+                      : currentUrls[0]
+                  }
                   controls
                   playsInline
                   className="h-full w-full object-contain"
@@ -461,7 +490,11 @@ export function MediaUploader({
               <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-slate-300 bg-slate-900">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={currentUrls[0]}
+                  src={
+                    currentUrls[0].includes('tmpfiles.org')
+                      ? `/api/media?url=${encodeURIComponent(currentUrls[0])}`
+                      : currentUrls[0]
+                  }
                   alt="Vista previa"
                   className="h-full w-full object-cover"
                 />
@@ -534,7 +567,7 @@ export function MediaUploader({
                 </p>
                 <p className="mt-0.5 text-[11px] text-slate-600">
                   {mediaKind === 'video'
-                    ? 'Formatos: MP4, MOV, WebM (duración mín. 4s, máx. 30s. Subida directa a S3 sin restricciones de tamaño)'
+                    ? 'Formatos: MP4, MOV, WebM (duración mín. 4s, máx. 30s. Subida directa en la nube sin restricciones de tamaño)'
                     : allowMultiple
                     ? `Puedes seleccionar de 1 a ${maxFiles} imágenes JPG, PNG o WebP a la vez`
                     : 'Formatos soportados: JPG, PNG, WebP (alta resolución)'}

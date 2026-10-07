@@ -1,20 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { resolveDirectMediaUrl } from '@/lib/media-utils';
 
 export const dynamic = 'force-dynamic';
 
 /**
  * Proxy de medios público de alta compatibilidad.
  * Resuelve el problema donde los servidores GPU de Higgsfield (que usan Python requests / urllib)
- * sufren bloqueos de firewall (ConnectionReset / 403) al descargar directamente desde ciertos
- * alojamientos gratuitos como Catbox/Litterbox.
- * Este proxy descarga el medio con un User-Agent de navegador legítimo y lo retransmite en streaming
- * a los servidores de Higgsfield con los encabezados MIME adecuados.
+ * sufren bloqueos de firewall (ConnectionReset / 403) o reciben páginas HTML al descargar desde
+ * servicios temporales como tmpfiles.org o Catbox.
+ * Este proxy resuelve los enlaces de descarga directos y retransmite el flujo binario con un
+ * User-Agent de navegador legítimo, soporte de Range y encabezados MIME precisos.
  */
 export async function GET(req: NextRequest): Promise<Response> {
   const { searchParams } = new URL(req.url);
-  const targetUrl = searchParams.get('url');
+  const rawTargetUrl = searchParams.get('url');
 
-  if (!targetUrl) {
+  if (!rawTargetUrl) {
     return NextResponse.json(
       { error: 'Parámetro "url" faltante en la petición.' },
       { status: 400 }
@@ -22,6 +23,7 @@ export async function GET(req: NextRequest): Promise<Response> {
   }
 
   try {
+    const targetUrl = await resolveDirectMediaUrl(rawTargetUrl);
     const parsed = new URL(targetUrl);
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
       return NextResponse.json(
@@ -57,7 +59,14 @@ export async function GET(req: NextRequest): Promise<Response> {
     const responseHeaders = new Headers();
 
     let contentType = upstreamRes.headers.get('content-type');
-    if (!contentType || contentType === 'application/octet-stream' || contentType.includes('text/plain')) {
+    if (
+      !contentType ||
+      contentType === 'application/octet-stream' ||
+      contentType.includes('text/plain') ||
+      contentType.includes('SIMH') ||
+      contentType.includes('html') ||
+      !contentType.includes('/')
+    ) {
       const lower = targetUrl.toLowerCase();
       if (lower.endsWith('.mp4')) contentType = 'video/mp4';
       else if (lower.endsWith('.webm')) contentType = 'video/webm';

@@ -8,6 +8,7 @@ import {
   submitGenerationJob,
 } from '@/lib/higgsfield-server';
 import { getModelById, type ParameterValue } from '@/lib/models';
+import { resolvePayloadMediaUrls } from '@/lib/media-utils';
 
 const generateRequestSchema = z.object({
   modelId: z.string().min(1, 'Debes seleccionar un modelo.'),
@@ -232,9 +233,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
   const baseUrl = `${proto}://${host}`;
 
+  const directPayload = await resolvePayloadMediaUrls(finalPayload);
   const processedPayload = isLocal
-    ? finalPayload
-    : sanitizeMediaUrlsForWorkers(finalPayload, baseUrl);
+    ? directPayload
+    : sanitizeMediaUrlsForWorkers(directPayload, baseUrl);
 
   try {
     const v2Job = await submitGenerationJob(
