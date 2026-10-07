@@ -288,18 +288,32 @@ export function ApiKeyModal({
             </div>
           )}
 
-          {/* Enlace de ayuda */}
-          <div className="flex items-center justify-between text-xs font-medium text-slate-600">
-            <span>¿No tienes una API Key?</span>
-            <a
-              href="https://console.higgsfield.ai"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 font-bold text-indigo-600 hover:text-indigo-800 hover:underline"
-            >
-              Obtener credenciales en console.higgsfield.ai
-              <ExternalLink className="h-3.5 w-3.5" />
-            </a>
+          {/* Enlace de ayuda y nota de facturación */}
+          <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+            <div className="flex items-center justify-between font-medium">
+              <span>¿Dónde obtener tu Key?</span>
+              <a
+                href="https://open.higgsfield.ai"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 font-bold text-indigo-600 hover:text-indigo-800 hover:underline"
+              >
+                open.higgsfield.ai
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            </div>
+            <p className="text-[11px] leading-relaxed text-slate-600">
+              💡 <strong>Nota sobre saldo y créditos:</strong> Tu API Key consume saldo prepagado en USD desde{' '}
+              <a
+                href="https://open.higgsfield.ai/billing"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-bold text-indigo-600 hover:underline"
+              >
+                open.higgsfield.ai/billing
+              </a>
+              . Los créditos de suscripción de la aplicación web de higgsfield.ai no aplican a la API de desarrolladores.
+            </p>
           </div>
 
           {/* Botones de acción */}

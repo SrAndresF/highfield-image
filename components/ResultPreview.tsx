@@ -196,6 +196,33 @@ export function ResultPreview({
                   'Ocurrió un error inesperado al procesar el trabajo en Higgsfield.'}
               </p>
 
+              {/* Alerta explicativa y botón de recarga si es error de saldo/créditos de la API */}
+              {(errorMessage?.toLowerCase().includes('saldo') ||
+                errorMessage?.toLowerCase().includes('credit') ||
+                errorMessage?.toLowerCase().includes('balance')) && (
+                <div className="rounded-xl border border-amber-300 bg-amber-50 p-3.5 text-left text-xs text-amber-900 shadow-2xs">
+                  <p className="font-extrabold text-amber-950 flex items-center gap-1.5">
+                    <span>💳</span>
+                    <span>¿Por qué ocurre esto si tienes créditos en Higgsfield?</span>
+                  </p>
+                  <p className="mt-1.5 text-[11px] leading-relaxed text-amber-900">
+                    Higgsfield separa su <strong>suscripción web</strong> (higgsfield.ai con créditos de usuario) de su <strong>API de Desarrolladores</strong> (open.higgsfield.ai con saldo en USD prepagado).
+                  </p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-amber-900">
+                    Tu API Key consume directamente del <strong>saldo prepagado en USD</strong> de tu consola de desarrollador.
+                  </p>
+                  <a
+                    href="https://open.higgsfield.ai/billing"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-amber-600 px-3.5 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-amber-700"
+                  >
+                    <span>Recargar saldo en open.higgsfield.ai/billing</span>
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                </div>
+              )}
+
               {/* Botón prominente de reintento */}
               {onRetry && (
                 <button

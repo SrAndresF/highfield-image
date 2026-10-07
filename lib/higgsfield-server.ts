@@ -266,9 +266,18 @@ export async function fetchJobStatus(
 
     if (detailedErr) {
       const sanitized = sanitizeErrorText(detailedErr, creds);
-      if (sanitized.toLowerCase().trim() === 'generation failed') {
+      const lower = sanitized.toLowerCase();
+      if (lower.trim() === 'generation failed') {
         errorMessage =
           'La generación no pudo ser completada por Higgsfield (Generation failed). Esto suele ocurrir si el archivo de origen no pudo descargarse o si el clúster GPU tuvo una sobrecarga temporal. Tus créditos reservados se reembolsan automáticamente.';
+      } else if (
+        lower.includes('credit balance is too low') ||
+        lower.includes('not enough credits') ||
+        lower.includes('insufficient balance') ||
+        lower.includes('top up your balance')
+      ) {
+        errorMessage =
+          'Saldo de API insuficiente en Higgsfield: Tu cuenta en open.higgsfield.ai no cuenta con balance suficiente en USD para procesar esta solicitud. ⚠️ Recuerda que los créditos de la suscripción web (higgsfield.ai) NO se aplican a la API: tu API Key consume del saldo prepagado en USD (Balance) en tu consola de desarrollador. Recarga saldo ("Top up balance") en https://open.higgsfield.ai/billing para poder generar.';
       } else {
         errorMessage = `Error de Higgsfield: ${sanitized}. Tus créditos reservados se reembolsan automáticamente.`;
       }
